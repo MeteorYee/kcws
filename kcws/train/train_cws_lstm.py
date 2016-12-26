@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Koth Chen
 # @Date:   2016-07-26 13:48:32
-# @Last Modified by:   Koth
-# @Last Modified time: 2016-12-10 10:00:47
+# @Last Modified by:   Synrey Yee
+# @Last Modified time: 2016-12-23
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -92,7 +92,9 @@ class Model:
     length_64 = tf.cast(length, tf.int64)
     if FLAGS.embedding_size_2 > 0:
       word_vectors2 = tf.nn.embedding_lookup(self.words2, X)
-      word_vectors = tf.concat(2, [word_vectors, word_vectors2])
+      # revised by me
+      # word_vectors = tf.concat_v2(2, [word_vectors, word_vectors2])
+      word_vectors = tf.concat_v2([word_vectors, word_vectors2], 2)
     #if trainMode:
     #  word_vectors = tf.nn.dropout(word_vectors, 0.5)
     with tf.variable_scope("rnn_fwbw", reuse=reuse) as scope:
@@ -115,12 +117,16 @@ class Model:
                                           length_64,
                                           seq_dim=1)
 
-    output = tf.concat(2, [forward_output, backward_output])
+    # output = tf.concat(2, [forward_output, backward_output])
+    # This op will be removed after the deprecation date. Please switch to tf.concat_v2().
+
+    output = tf.concat_v2([forward_output, backward_output], 2)
     output = tf.reshape(output, [-1, self.numHidden * 2])
     if trainMode:
       output = tf.nn.dropout(output, 0.5)
 
-    matricized_unary_scores = tf.batch_matmul(output, self.W) + self.b
+    # matricized_unary_scores = tf.batch_matmul(output, self.W) + self.b
+    matricized_unary_scores = tf.matmul(output, self.W) + self.b
     matricized_unary_scores = tf.nn.log_softmax(matricized_unary_scores)
     unary_scores = tf.reshape(
         matricized_unary_scores,
@@ -226,8 +232,15 @@ def test_evaluate(sess, unary_score, test_sequence_length, transMatrix, inp,
 
 def inputs(path):
   whole = read_csv(FLAGS.batch_size, path)
-  features = tf.transpose(tf.pack(whole[0:FLAGS.max_sentence_len]))
-  label = tf.transpose(tf.pack(whole[FLAGS.max_sentence_len:]))
+  '''
+	This op will be removed after the deprecation date. Please switch to tf.stack().
+	WARNING:tensorflow:From kcws/train/train_cws_lstm.py:230:
+	pack (from tensorflow.python.ops.array_ops) is deprecated and will be removed after 2016-12-14.
+  '''
+  # features = tf.transpose(tf.pack(whole[0:FLAGS.max_sentence_len]))
+  # label = tf.transpose(tf.pack(whole[FLAGS.max_sentence_len:]))
+  features = tf.transpose(tf.stack(whole[0:FLAGS.max_sentence_len]))
+  label = tf.transpose(tf.stack(whole[FLAGS.max_sentence_len:]))
   return features, label
 
 
